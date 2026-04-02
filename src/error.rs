@@ -7,3 +7,9 @@ pub enum ParseError {
     #[error("Menge can never be empty.")]
     EmptyMenge,
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum CatError {
+    #[error("`{0}` already exists.")]
+    Exists(String),
+}
