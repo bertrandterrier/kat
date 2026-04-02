@@ -1,0 +1,10 @@
+[package]
+name = "signa"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fxhash = "0.2"
+num-traits = "0.2"
+once_cell = "1.21"
+thiserror = "2.0"
