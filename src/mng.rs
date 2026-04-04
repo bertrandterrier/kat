@@ -1,12 +1,12 @@
 use std::{
+    fmt::{ Debug },
     cmp::{ Eq, Ord, Ordering, PartialEq, PartialOrd },
     default::Default,
     iter::{ FromIterator, Iterator }
 };
-use crate::{
-    error::ParseError,
-};
+use crate::error::Error;
 
+#[derive(Debug)]
 pub struct Menge<T>(T, Vec<T>);
 
 impl<T> Menge<T> {
@@ -21,6 +21,13 @@ impl<T> Menge<T> {
             .iter()
             .rev()
             .chain(std::iter::once(&self.0))
+    }
+    pub fn first_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+    pub fn last_mut(&mut self) -> &mut T {
+        if let Some(l) = self.1.last_mut() { l }
+        else { &mut self.0 }
     }
     pub fn last(&self) -> &T {
         if let Some(l) = self.1.last() { l }
@@ -60,6 +67,7 @@ impl<T: Clone> Menge<T> {
             None => return None,
             Some(f) => f.clone(),
         };
+        self.1.remove(0);
         let old_first = self.0.clone();
         self.0 = new_first;
         Some(old_first)
@@ -76,8 +84,20 @@ impl<T: Clone> Menge<T> {
             self.1.get(idx)
         }
     }
+    pub fn rest(&self) -> &[T] {
+        &self.1
+    }
 }
 
+impl<T: Clone> From<(T, Vec<T>)> for Menge<T> {
+    fn from(src: (T, Vec<T>)) -> Self {
+        let mut new = Menge::new(src.0);
+        for e in src.1 {
+            new.push_back(e.clone())
+        };
+        new 
+    }
+}
 
 impl<T: PartialEq + Clone> Menge<T> {
     pub fn starts_with(&self, rhs: &Self) -> bool {
@@ -111,9 +131,9 @@ impl<T: Clone + Default> Default for Menge<T> {
 }
 
 impl<T: Clone> TryFrom<&[T]> for Menge<T> {
-    type Error = ParseError;
+    type Error = Error;
     fn try_from(src: &[T]) -> Result<Self, Self::Error> {
-        if src.len() <= 0 { return Err(ParseError::EmptyMenge) }
+        if src.len() <= 0 { return Err(Error::EmptyMenge) }
         else if src.len() == 1 {
             let first = src.get(0).unwrap();
             Ok(Self(first.clone(), Vec::new()))
@@ -170,25 +190,6 @@ impl<T: Ord> Ord for Menge<T> {
     }
 }
 
-impl<T> FromIterator<T> for Menge<T>
-where
-    T: Clone,
-{
-    fn from_iter<I: IntoIterator<Item = T>>(src: I) -> Self {
-        let mut buf = src.into_iter();
-        let first = buf.next()
-            .expect("Empty Menge is not allowed.")
-            .clone();
-        Self(first, {
-            let mut v: Vec<T> = Vec::new();
-            while let Some(e) = buf.next() {
-                v.push(e.clone())
-            };
-            v
-        })
-    }
-}
-
 impl<T: Clone> From<Menge<T>> for Vec<T> {
     fn from(src: Menge<T>) -> Self {
         Vec::from(src
@@ -205,5 +206,110 @@ impl<T: Copy> Clone for Menge<T> {
     fn clone_from(&mut self, source: &Self) {
         self.0.clone_from(&source.0);
         self.1.clone_from(&source.1);
+    }
+}
+
+impl<T: Clone> TryFrom<Vec<T>> for Menge<T> {
+    type Error = Error;
+    fn try_from(src: Vec<T>) -> Result<Self, Self::Error> {
+        if src.len() < 1 {
+            Err(Error::EmptyMenge)
+        } else {
+            let first = src
+                .first()
+                .unwrap()
+                .clone();
+            let mut m = Menge::new(first);
+            if let Some(slc) = src.get(1..) {
+                for e in slc {
+                    m.push_back(e.clone())
+                }
+            }
+            return Ok(m)
+        }
+    }
+}
+
+impl<T: Copy + Debug> TryFrom<Menge<Option<T>>> for Menge<T> {
+    type Error = Error;
+    fn try_from(src: Menge<Option<T>>) -> Result<Self, Self::Error> {
+        let mut m = match src.first() {
+            Some(t) => Self::new(t.clone()),
+            None => return Err(Error::NoNullmenge(
+                format!("{:?}", src)
+            )),
+        };
+        for opt in src.1 {
+            if let Some(t) = opt {
+                m.push_back(t.clone());
+            } else {
+                return Err(Error::NoNullmenge(
+                    format!("{:?}..?", m)
+                ))
+            }
+        };
+        Ok(m)
+    }
+}
+
+impl<T: Clone> FromIterator<T> for Menge<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(src: I) -> Self {
+        let mut iter = src.into_iter();
+        let mut m: Menge<T> = Menge::new(iter
+            .next()
+            .unwrap());
+        while let Some(t) = iter.next() {
+            m.push_back(t);
+        };
+        m
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::mark::Marke;
+    static MENGE: &'static[(char, &'static str)] = &[
+        ('a', "bc"),
+        ('1', "234"),
+        ('0', ""),
+        ('i', "mmanuel"),
+    ];
+    #[test]
+    fn char_menge() {
+        let r: Vec<Menge<char>> = MENGE
+            .iter()
+            .map(|(f, r)| {
+                let mut m: Menge<char> = Menge::new(*f);
+                for c in r.chars() {
+                    m.push_back(c);
+                };
+                m.pop_front();
+                m
+            })
+            .collect::<Vec<Menge<char>>>();
+        let expected: Vec<Menge<char>> = Vec::from(&[
+            Menge('b', vec!['c']),
+            Menge('2', vec!['3', '4']),
+            Menge('0', Vec::new()),
+            Menge('m', vec!['m', 'a', 'n', 'u', 'e', 'l']),
+        ]);
+        assert_eq!(r, expected)
+    }
+    #[test]
+    fn marken_menge() {
+        let v = Vec::from(&[
+            Marke::Numeric(1_u32),
+            Marke::to_letter_safe('a'),
+            Marke::to_sep_safe('-'),
+            Marke::Numeric(32_u32)
+        ]);
+        let m = Menge::try_from(v).unwrap();
+        let expected = Menge::<Marke<u32>>(Marke::Numeric(1_u32), Vec::from(&[
+            Marke::to_letter_safe('a'),
+            Marke::to_sep_safe('-'),
+            Marke::Numeric(32_u32)
+        ]));
+        assert_eq!(m, expected);
     }
 }
