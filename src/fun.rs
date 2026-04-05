@@ -1,7 +1,6 @@
 use fxhash::FxHasher;
 use std::{
     hash::{ Hash, Hasher },
-    time::{ SystemTime, UNIX_EPOCH },
 };
 use crate::ZUGANGSNUMMERN;
 
@@ -16,14 +15,7 @@ where
     hasher.finish()
 }
 
-pub fn get_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time stopped working")
-        .as_secs()
-}
-
-pub fn get_znr() -> usize {
+pub fn new_z_num() -> usize {
     let mut reg = ZUGANGSNUMMERN.lock()
         .expect("Cannot lock ZUGANGSNUMMERN");
     let new_nr: usize = match reg.last() {
@@ -34,13 +26,13 @@ pub fn get_znr() -> usize {
     new_nr
 }
 
-pub fn remove_znr(znr: usize) {
+pub fn remove_z_num(z: usize) {
     let mut reg = ZUGANGSNUMMERN.lock()
         .expect("Cannot lock ZUSANGSNUMMERN");
     if let Some((i, _)) = reg
         .iter()
         .enumerate()
-        .find(|(_, e)| *e == &znr)
+        .find(|(_, e)| *e == &z)
     {
         reg.remove(i);
     };
@@ -53,7 +45,7 @@ mod test {
     fn zugangs_nummer() {
         let mut buf: Vec<usize> = Vec::new(); 
         for _ in 0..10 {
-            buf.push(get_znr());
+            buf.push(new_z_num());
         };
         let expected: Vec<usize> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         assert_eq!(buf, expected);

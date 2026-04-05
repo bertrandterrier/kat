@@ -6,7 +6,7 @@ use std::{
 };
 use crate::{
     error::Error,
-    func,
+    fun,
     mark::Marke,
     Nummer,
     mng::Menge,
@@ -242,7 +242,7 @@ impl<T: PrimInt> DerefMut for Kennzeichen<T> {
 impl Nummer for Kennzeichen<u64> {
     type IntSize = u64;
     fn as_int(&self) -> Self::IntSize {
-        func::build_seq_id(
+        fun::build_seq_id(
             self.0
                 .iter()
                 .map(|m| m.as_int())
